@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 
 
-class UserInfo(models):
+class UserInfo(models.Model):
     """
     员工表
     """
@@ -14,7 +14,7 @@ class UserInfo(models):
         return self.name
 
 
-class MeetingList(models):
+class MeetingList(models.Model):
     """
     会议室信息表
     """
@@ -25,7 +25,7 @@ class MeetingList(models):
         return self.name
 
 
-class Reserve(models):
+class Reserve(models.Model):
     """
     预定表
     """
