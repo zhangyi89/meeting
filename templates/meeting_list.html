@@ -1,10 +1,12 @@
+{% load staticfiles %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
     <link rel="stylesheet" href="/static/bootstrap-3.3.7/css/bootstrap.min.css">
-    <script src="/static/jquery-3.2.1.min.js"></script>
+    <link rel="stylesheet" href="{% static 'plugins/datetimepicker/bootstrap-datetimepicker.min.css' %}">
+
     <style>
         .nav {
             margin-bottom: 20px;
@@ -18,15 +20,33 @@
         .selected {
             background-color: #9acfea;
         }
+
+        .reserved {
+            background-color: #d58512;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>会议预定</h1>
-    <div class="pull-right nav"><span>时间插件</span>
-        <button class="btn btn-primary">保存</button>
+    <div class="pull-right nav">
+        <span>时间插件</span>
+        <div class='input-group' style="width: 230px;float:left;">
+            <input type='text' class="form-control" id='datetimepicker11' placeholder="请选择日期"/>
+            <span class="input-group-addon">
+                <span class="glyphicon glyphicon-calendar">
+                </span>
+            </span>
+        </div>
+        <button class="btn btn-primary save_btn">保存</button>
     </div>
-    {{ request.session.user.username }}
+    <p>{{ request.session.user.username }}</p>
+    <div class="data-list">
+        {% for reserve in reserve_list %}
+            <p person="{{ reserve.person }}" room="{{ reserve.room }}" date="{{ reserve.reserve_date }}"
+               time="{{ reserve.reserve_time|time:"h:i" }}"></p>
+        {% endfor %}
+    </div>
 </div>
 <div class="container">
     <table class="table table-bordered">
@@ -46,53 +66,174 @@
             <th>17：00</th>
             <th>18：00</th>
             <th>19：00</th>
-            <th>10：00</th>
+            <th>20：00</th>
         </tr>
         </thead>
         <tbody>
-        <tr>
-            <th scope="row">1</th>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
+        {% for room in room_list %}
+            <tr>
+                <th scope="row">{{ forloop.counter }}</th>
+                <th>{{ room.name }}</th>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+        {% endfor %}
+
+
         </tbody>
     </table>
     </table>
 </div>
 </body>
+<script src="/static/jquery-3.2.1.min.js"></script>
+<script src="/static/jquery.cookie.js"></script>
+<script src="{% static 'bootstrap-3.3.7/js/bootstrap.min.js' %}"></script>
+<script src="{% static 'plugins/datetimepicker/bootstrap-datetimepicker.min.js' %}"></script>
+<script src="{% static 'plugins/datetimepicker/bootstrap-datetimepicker.zh-CN.js' %}"></script>
 <script>
-    // 员工选择会议室事件
-    $("tbody").on("click", "td", function () {
+    //创建Date的Format方法（把此方法添加到Date的prototype上）
+    // 对Date的扩展，将 Date 转化为指定格式的String
+    // 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，
+    // 年(y)可以用 1-4 个占位符，毫秒(S)只能用 1 个占位符(是 1-3 位的数字)
+    // 例子：
+    // (new Date()).Format("yyyy-MM-dd hh:mm:ss.S") ==> 2006-07-02 08:09:04.423
+    // (new Date()).Format("yyyy-M-d h:m:s.S")      ==> 2006-7-2 8:9:4.18
+    Date.prototype.Format = function (fmt) {
+        var o = {
+            "M+": this.getMonth() + 1, //月份
+            "d+": this.getDate(), //日
+            "h+": this.getHours(), //小时
+            "m+": this.getMinutes(), //分
+            "s+": this.getSeconds(), //秒
+            "q+": Math.floor((this.getMonth() + 3) / 3), //季度
+            "S": this.getMilliseconds() //毫秒
+        };
+        //.regexObj.test(),正则标准库函数，测试是否符合regexObj
+        if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+        for (var k in o)
+            if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+        return fmt;
+    };
+
+    // 日历插件
+    // 初始化日期插件配置
+    function initDatePicker() {
+        $("#datetimepicker11").datetimepicker({
+            minView: "month",
+            language: "zh-cn",
+            sideBySide: true,
+            format: "yyyy-mm-dd",
+            bootcssVer: 3,
+            startDate: new Date(),
+            autoclose: true,
+        })
+{#            .on('changeDate', changeDate);#}
+    }
+
+    //选择日期之后的回调函数
+    function changeDate(e) {
+        //格式化时间，在date的prototypr上创建了一个Format的方法
+        CHOSEN_DATE = e.date.Format('yyyy-MM-DD');
+        //传递年份参数，初始化页面信息
+        initBookingInfo(CHOSEN_DATE);
+    }
+    $(function () {
+        initDatePicker()
+    });
+    var time_list = {
+        "08:00": 2, "09:00": 3, "10:00": 4, "11:00": 5, "12:00": 6, "13:00": 7,
+        "14:00": 8, "15:00": 9, "16:00": 10, "17:00": 11, "18:00": 12, "19:00": 13,
+        "20:00": 14
+    };
+    // 员工选择会议室事件,并且一个用户只有选择一个时间段
+    $("tbody").on("click", "td", function (e) {
         $(this).toggleClass("selected");
-        if ($(this).hasClass("selected")){
-            $(this).text("{{ request.session.user.username }}");
-        }else{$(this).text("")}
+        if ($(this).hasClass("reserved")) {
+            e.stopPropagation()
+        } else {
+            if ($(this).hasClass("selected")) {
+                $(this).text("{{ request.session.user.username }}");
+            } else {
+                $(this).text("")
+            }
+        }
+
     });
 
-    // 提交选择事件
-    // 判断所有被选中的会议的时间段
-    // tbody中的每个tr中的每个td
-    $("tbody").each(function () {
-        var td_list = $(this).find("td");
-        console.log(td_list);
-        for(i in $(this).find("td")){
-{#            if (i.hasClass("selected")){#}
-{#                console.log(i);#}
-{#            }#}
-            console.log(i)
+
+    $(".save_btn").click(function () {
+        // 提交选择事件
+        // 判断所有被选中的会议的时间段
+        // tbody中的每个tr中的每个还有selected的td
+        var data_list = [];
+        var td_list = $("tbody").find("tr");
+        for (var i = 0; i < td_list.length; i++) {
+            {#            var a = $(td_list[i]).index();#}
+            var a = ($(td_list[i]).find("th"))[1].innerText;
+            var data = {"meeting_room": a, "times": []};
+            aa = $("td", $(td_list)[i]).filter(".selected");
+            for (var i = 0; i < aa.length; i++) {
+                data['times'].push($(aa[i]).index())
+            }
         }
-    })
+        // 发送数据给后端
+        $.ajax({
+            url: location.href,
+            type: "post",
+            data: JSON.stringify(data),
+            headers: {"X-CSRFToken": $.cookie('csrftoken'), "Content-Type": "application/json"},
+            success: function (arg) {
+                console.log(arg)
+            }
+        })
+    });
+    //显示已经被预定的信息
+    var reserved_list = ($(".data-list p"));
+    {#    for (var i = 0; i < reserved_list.length; i++) {#}
+    {#        var room = reserved_list[i].getAttribute("room");#}
+    {#        $("tbody tr").filter(function (t) {#}
+    {#            if (this.innerText == room) {#}
+    {#                console.log(this);#}
+    {#                var time = reserved_list[i].getAttribute("time");#}
+    {#                console.log(time);#}
+    {#                time_index = time_list[time];#}
+    {#                console.log(time_index);#}
+    {##}
+    {##}
+    {#            }#}
+    {#        })#}
+    {#    }#}
+    for (var i = 0; i < reserved_list.length; i++) {
+        var name = reserved_list[i].getAttribute("person");
+        var room = reserved_list[i].getAttribute("room");
+        var time = reserved_list[i].getAttribute("time");
+        var time_index = time_list[time];
+        var data = $("tbody tr");
+        for (j = 0; j < data.length; j++) {
+            {#                console.log($(data[j]).find("td").filter(".selected")[0]);#}
+            $(data[j]).find("th").filter(function (t) {
+                if (this.innerText == room) {
+                    {#                    console.log(this);#}
+                    {#                    console.log(data[j]);#}
+                    {#                    console.log(time_index);#}
+                    {#                    console.log($(data[j]).find("td")[time_index]);#}
+                    $($(data[j]).find("td")[time_index]).addClass("reserved").text(name);
+                }
+            })
+        }
+    }
+    d = new Date()
+    d.getDate()
 </script>
 </html>

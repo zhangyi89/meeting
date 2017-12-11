@@ -33,10 +33,10 @@ class Reserve(models.Model):
     room = models.ForeignKey(verbose_name="预定的会议室", to="MeetingList")
     reserve_date = models.DateField(verbose_name="预定的日期")
     reserve_time = models.TimeField(verbose_name="预定的时间段")
-    create_time = models.DateTimeField(verbose_name="预定的时间")
+    create_time = models.DateTimeField(verbose_name="预定的时间", auto_now_add=True)
 
     class Meta:
         unique_together = (("reserve_date", "reserve_time"),)
 
     def __str__(self):
-        return self.person
+        return self.person.name
